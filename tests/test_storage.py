@@ -32,3 +32,9 @@ def test_get_all_study_summaries():
     summary = storage.get_all_study_summaries()[0]
     assert summary.study_name == "foo"
     assert summary.best_trial is None
+
+
+if __name__ == "__main__":
+    test_basic()
+    test_load_study()
+    test_get_all_study_summaries()

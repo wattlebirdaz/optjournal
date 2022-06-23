@@ -97,6 +97,8 @@ class _Study(object):
                 self._set_study_user_attr(data, worker_id)
             elif kind == _Operation.SET_STUDY_SYSTEM_ATTR:
                 self._set_study_system_attr(data, worker_id)
+            elif kind == _Operation.SET_TRIAL_STATE_VALUES:
+                self._set_trial_state_values(data, worker_id)
             else:
                 raise NotImplementedError("kind={}, data={}".format(kind, data))
 
@@ -108,7 +110,9 @@ class _Study(object):
         trial_id = _id.make_trial_id(self.study_id, number)
 
         if "datetime_complete" in data:
-            data["datetime_complete"] = datetime.fromtimestamp(data["datetime_complete"])
+            data["datetime_complete"] = datetime.fromtimestamp(
+                data["datetime_complete"]
+            )
 
         state = TrialState(data.get("state", TrialState.RUNNING.value))
 
@@ -180,6 +184,11 @@ class _Study(object):
             ):
                 self.best_trial = trial
 
+    def _set_trial_state_values(self, data: Dict[str, Any], worker_id: str) -> None:
+        if data.get("values", None) is not None:
+            self._set_trial_values(data, worker_id)
+        self._set_trial_state(data, worker_id)
+
     def _set_trial_param(self, data: Dict[str, Any], worker_id: str) -> None:
         number = _id.get_trial_number(data["trial_id"])
         name = data["name"]
@@ -193,7 +202,9 @@ class _Study(object):
         number = _id.get_trial_number(data["trial_id"])
         self.trials[number].values = data["values"]
 
-    def _set_trial_intermediate_value(self, data: Dict[str, Any], worker_id: str) -> None:
+    def _set_trial_intermediate_value(
+        self, data: Dict[str, Any], worker_id: str
+    ) -> None:
         number = _id.get_trial_number(data["trial_id"])
         self.trials[number].intermediate_values[data["step"]] = data["value"]
 
@@ -224,7 +235,9 @@ class _StudySummary(_Study):
         trial_id = _id.make_trial_id(self.study_id, number)
 
         if "datetime_complete" in data:
-            data["datetime_complete"] = datetime.fromtimestamp(data["datetime_complete"])
+            data["datetime_complete"] = datetime.fromtimestamp(
+                data["datetime_complete"]
+            )
 
         if self.datetime_start is None:
             self.datetime_start = datetime.fromtimestamp(data["datetime_start"])
@@ -263,6 +276,6 @@ class _StudySummary(_Study):
         # FIXME: Don't use pickle
         return pickle.dumps(self)
 
-    def deserialize(data: bytes) -> '_StudySummary':
+    def deserialize(data: bytes) -> "_StudySummary":
         # FIXME: Don't use pickle
         return pickle.loads(data)

@@ -59,15 +59,25 @@ class JournalStorage(BaseStorage):
             del self._studies[study_id]
 
     def set_study_user_attr(self, study_id: int, key: str, value: Any) -> None:
-        self._enqueue_op(study_id, _Operation.SET_STUDY_USER_ATTR, {"key": key, "value": value})
+        self._enqueue_op(
+            study_id, _Operation.SET_STUDY_USER_ATTR, {"key": key, "value": value}
+        )
         self._sync(study_id)
 
     def set_study_system_attr(self, study_id: int, key: str, value: Any) -> None:
-        self._enqueue_op(study_id, _Operation.SET_STUDY_SYSTEM_ATTR, {"key": key, "value": value})
+        self._enqueue_op(
+            study_id, _Operation.SET_STUDY_SYSTEM_ATTR, {"key": key, "value": value}
+        )
         self._sync(study_id)
 
-    def set_study_directions(self, study_id: int, directions: List[study.StudyDirection]) -> None:
-        self._enqueue_op(study_id, _Operation.SET_STUDY_DIRECTIONS, {"directions": [d.value for d in directions]})
+    def set_study_directions(
+        self, study_id: int, directions: List[study.StudyDirection]
+    ) -> None:
+        self._enqueue_op(
+            study_id,
+            _Operation.SET_STUDY_DIRECTIONS,
+            {"directions": [d.value for d in directions]},
+        )
         self._sync(study_id)
 
         if self._studies[study_id].directions != directions:
@@ -115,13 +125,17 @@ class JournalStorage(BaseStorage):
 
     def get_all_study_summaries(self) -> List["LazyStudySummary"]:
         return [
-            LazyStudySummary(model.id, model.name, self) for model in self._db.get_all_studies()
+            LazyStudySummary(model.id, model.name, self)
+            for model in self._db.get_all_studies()
         ]
 
     def create_new_trial(
         self, study_id: int, template_trial: Optional["FrozenTrial"] = None
     ) -> int:
-        data = {"datetime_start": datetime.now().timestamp(), "worker_id": self._worker_id()}
+        data = {
+            "datetime_start": datetime.now().timestamp(),
+            "worker_id": self._worker_id(),
+        }
 
         if template_trial is not None:
             data["state"] = template_trial.state.value
@@ -149,7 +163,11 @@ class JournalStorage(BaseStorage):
 
     def set_trial_state(self, trial_id: int, state: TrialState) -> bool:
         study_id = _id.get_study_id(trial_id)
-        data = {"trial_id": trial_id, "state": state.value, "worker_id": self._worker_id()}
+        data = {
+            "trial_id": trial_id,
+            "state": state.value,
+            "worker_id": self._worker_id(),
+        }
         if state.is_finished():
             data["datetime_complete"] = datetime.now().timestamp()
 
@@ -159,6 +177,25 @@ class JournalStorage(BaseStorage):
         trial = self.get_trial(trial_id)
         if state == TrialState.RUNNING and trial.owner != self._worker_id():
             return False
+
+        return True
+
+    def set_trial_state_values(
+        self, trial_id: int, state: TrialState, values: Optional[Sequence[float]] = None
+    ) -> bool:
+        data = {
+            "trial_id": trial_id,
+            "state": state.value,
+            "worker_id": self._worker_id(),
+        }
+        if values is not None:
+            data["values"] = values
+        if state.is_finished():
+            data["datetime_complete"] = datetime.now().timestamp()
+
+        study_id = _id.get_study_id(trial_id)
+        self._enqueue_op(study_id, _Operation.SET_TRIAL_STATE_VALUES, data)
+        self._sync(study_id)
 
         return True
 
@@ -197,7 +234,9 @@ class JournalStorage(BaseStorage):
 
     def get_trial_param(self, trial_id: int, param_name: str) -> float:
         trial = self.get_trial(trial_id)
-        return trial.distributions[param_name].to_external_repr(trial.params[param_name])
+        return trial.distributions[param_name].to_external_repr(
+            trial.params[param_name]
+        )
 
     def set_trial_values(self, trial_id: int, values: Sequence[float]) -> None:
         trial = self.get_trial(trial_id)
@@ -256,10 +295,10 @@ class JournalStorage(BaseStorage):
         return self._studies[study_id].trials[_id.get_trial_number(trial_id)]
 
     def get_all_trials(
-            self,
-            study_id: int,
-            deepcopy: bool = True,
-            states: Optional[Tuple[optuna.trial.TrialState, ...]] = None
+        self,
+        study_id: int,
+        deepcopy: bool = True,
+        states: Optional[Tuple[optuna.trial.TrialState, ...]] = None,
     ) -> List["FrozenTrial"]:
         if study_id not in self._studies:
             self._sync(study_id)
@@ -298,7 +337,9 @@ class JournalStorage(BaseStorage):
             for op in ops:
                 self._studies[study_id].execute(op, self._worker_id())
 
-    def _enqueue_op(self, study_id: int, kind: _Operation, data: Dict[str, Any]) -> None:
+    def _enqueue_op(
+        self, study_id: int, kind: _Operation, data: Dict[str, Any]
+    ) -> None:
         data = json.dumps([kind.value, data])
         with self._lock:
             last_op = self._buffered_ops[-1] if self._buffered_ops else None
